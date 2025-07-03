@@ -17,14 +17,14 @@ def getlabels(labelfilename):
         testno = rawlabels.iloc[row,2]
         trayno = rawlabels.iloc[row,5].replace(" ","")
         labels = rawlabels.iloc[row+2:row+12,1:16]
-        labels.columns = [number for number in range(1,16)]
+        labels.columns = [str(number).zfill(2) for number in range(1,16)]
         labels.index = [f'{testno}-{trayno}-{letter}' for letter in string.ascii_uppercase[0:10]]
         labels = labels.melt(var_name='column',value_name='score',ignore_index=False)
         #labels['test'] = labels.index.str.split('-')[0][0]
         labels.insert(0,'test',labels.index.str.split('-')[0][0])
-        labels.insert(1,'tray',labels.index.str.split('-')[0][1])
-        labels.insert(2,'row',labels.index.str.split('-')[0][2])
-        labels.insert(3,'variety',variety)
+        labels.insert(1,'variety',variety)
+        labels.insert(2,'tray',labels.index.str.split('-')[0][1])
+        labels.insert(3,'row',[item[2] for item in labels.index.str.split('-') ])
         if row > 1:
             final_labels = pd.concat((final_labels,labels))
         else:
@@ -37,7 +37,7 @@ no_seedlings = []
 healthy_seedlings = []
 label_valid = []
 for score in alllabels['score']:
-    if score == "NG" or score=="L":
+    if score == "M" or score=="L":
         valid = 0
     else:
         valid = 1
@@ -63,6 +63,33 @@ for score in alllabels['score']:
 alllabels['label_valid'] = label_valid
 alllabels['no_seedlings'] = no_seedlings
 alllabels['healthy_seedlings'] = healthy_seedlings
+
+#Merge with the test and sample numbers
+metadata = pd.read_csv(os.path.join(label_src,'sample_test.csv'),sep=";")
+metadata['variety'] = [variety.upper() for variety in metadata['variety']]
+alllabels = metadata.merge(alllabels,left_on=['test','variety'],right_on=['test','variety'])
+
+#Add image locations 
+image_src = '/mnt/share/SDC-ROBOT'
+redbeet_dirs = [os.path.join(image_src,dir) for dir in os.listdir(image_src) if re.search(r'REDBEET',dir) is not None]
+xray_file = []
+for index, row in alllabels.iterrows():
+    tray_no = row['tray'][0]
+    tray_parallel = row['tray'][1]
+    #Find the right dir
+    xray_dir = [dir for dir in redbeet_dirs if re.search(f'{row['lot']}-{row['sample']}.*{tray_no}-{tray_parallel}$',dir) is not None][0]
+    #Infer the image name
+    xray_name = os.path.join(xray_dir,f'XRAY_T01_{row['row']}{row['column']}.bmp')
+    #Check if the file exists
+    if os.path.exists(xray_name):
+        xray_file.append(xray_name)
+    else:
+        xray_file.append('file not present')
+
+alllabels['imagefile'] = xray_file
+#    xray_dir = re.search(f'^{row['lot']}-{row['sample']}-[0-9]{8}-{row['variety']}-{tray_no}-{tray_parallel}',os.listdir(image_src)[0])
+#    print(xray_dir)
+    
 
 #Write to Excel
 alllabels.to_excel(os.path.join(label_src,'detailed_labels.xlsx'),index=False)
