@@ -57,6 +57,8 @@ for score in alllabels['score']:
             healthyplants = numberofplants
         elif re.search(f'(?<={numberofplants})C2',score) is not None:
             healthyplants = numberofplants-1
+        else:
+            healthyplants = 0
     no_seedlings.append(numberofplants)
     healthy_seedlings.append(healthyplants)
     label_valid.append(valid)
