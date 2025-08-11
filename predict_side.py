@@ -36,19 +36,20 @@ def postprocess(result):
 
 
 #Define model source 
-model_src = '/mnt/share/tempdata/Pauls_tijdelijke_rotzooi/DCDL_labelfiles/Models/BEET_ORIENTATION/BEET_ORIENTATION.onnx'
+model_src = '/mnt/share/temp/DCDL_labelfiles/Models/BEET_ORIENTATION/BEET_ORIENTATION.onnx'
 #Load model
 session = onnxruntime.InferenceSession(model_src, None)
 # get the name of the first input of the model
 input_name = session.get_inputs()[0].name 
 #Load file with images 
-alllabels = '/mnt/share/tempdata/Pauls_tijdelijke_rotzooi/DCDL_labelfiles/REDBEET/detailed_labels.xlsx'
+alllabels = '/mnt/share/temp/DCDL_labelfiles/REDBEET/detailed_labels.xlsx'
 alllabels = pd.read_excel(alllabels)
 scores = []
+i = 0
 for file in alllabels['imagefile']:
     if file != 'file not present':
-        image = Image.open(file)
-        image = image.resize((224,224))
+        image_raw = Image.open(file)
+        image = image_raw.resize((224,224))
         image_data = np.array(image).transpose(2, 0, 1)
         input_data = preprocess(image_data)
         raw_result = session.run([], {input_name: input_data})
@@ -56,14 +57,18 @@ for file in alllabels['imagefile']:
         if res[0] < 0.7:
             scores.append('top')
         else:
+            i += 1
             scores.append('side')
+            dst = '/mnt/d/Datasets/DCDL/Experimentsroot/Multigerm/Measurements/XRay/multigerm'
+            sidefilename = os.path.join(dst,f"side_{i}.bmp")
+            image_raw.save(sidefilename)
     else:
         scores.append('None')
 
 alllabels['side_prediction'] = scores
 #Write to Excel
-label_src = '/mnt/share/tempdata/Pauls_tijdelijke_rotzooi/DCDL_labelfiles/REDBEET'
-alllabels.to_excel(os.path.join(label_src,'detailed_labels_side.xlsx'),index=False)
+label_src = '/mnt/share/temp/DCDL_labelfiles/REDBEET'
+#alllabels.to_excel(os.path.join(label_src,'detailed_labels_side.xlsx'),index=False)
 
 
 #Load image and resize
